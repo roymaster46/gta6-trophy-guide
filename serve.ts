@@ -1,7 +1,9 @@
 // A tiny static server for app/ (Node 22, standard library only), so the guide can be run locally without a
 // build step: `node serve.ts` serves app/ on http://localhost:8080 (`--port <n>` for another port). It sends the MIME
 // types a browser needs, refuses any path outside app/, and otherwise does nothing clever: this is a development
-// convenience, not a web server for the internet.
+// convenience, not a web server for the internet. Error responses are plain text on purpose, so a failed request
+// in the terminal says what went wrong: 400 for a malformed URL, 403 for a path outside app/, 404 for a file
+// that is not under app/.
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -35,13 +37,13 @@ createServer((request, response) => {
   try {
     pathname = decodeURIComponent(url.pathname);
   } catch {
-    response.writeHead(400).end('bad request');
+    response.writeHead(400).end('bad request: malformed URL');
     return;
   }
   if (pathname.endsWith('/')) pathname += 'index.html';
   const file = resolve(join(root, normalize(pathname)));
   if (file !== root && !file.startsWith(root + sep)) {
-    response.writeHead(403).end('forbidden');
+    response.writeHead(403).end('forbidden: path outside app/');
     return;
   }
   let size: number;
@@ -50,7 +52,7 @@ createServer((request, response) => {
     if (!stats.isFile()) throw new Error('not a file');
     size = stats.size;
   } catch {
-    response.writeHead(404).end('not found');
+    response.writeHead(404).end('not found: no such file under app/');
     return;
   }
   response.writeHead(200, {
